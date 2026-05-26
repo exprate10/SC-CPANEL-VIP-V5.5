@@ -1,0 +1,48 @@
+{
+  "name": "cpanel-zexc-official",
+  "version": "5.5.0",
+  "description": "SC-CPANEL VIP V5.5 - Premium Bot System",
+  "main": "index.js",
+  "scripts": {
+    "start": "node run.js",
+    "dev": "node-dev index.js"
+  },
+  "keywords": [
+    "zexc",
+    "cpanel",
+    "pterodactyl",
+    "premium",
+    "bot",
+    "telegram"
+  ],
+  "author": "ZEXC OFFC",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "latest",
+    "@tobyg74/tiktok-api-dl": "latest",
+    "@whiskeysockets/baileys": "latest",
+    "axios": "latest",
+    "btch-downloader": "latest",
+    "canvas": "latest",
+    "cheerio": "latest",
+    "fluent-ffmpeg": "latest",
+    "form-data": "latest",
+    "g-i-s": "latest",
+    "grammy": "latest",
+    "jimp": "latest",
+    "moment": "latest",
+    "node-fetch": "latest",
+    "ora": "5.4.1",
+    "pino": "latest",
+    "play-dl": "latest",
+    "qr-image": "latest",
+    "qrcode": "latest",
+    "readline-sync": "latest",
+    "spotidownloader": "latest",
+    "ssh2": "latest",
+    "node-dev": "latest"
+  }
+}
