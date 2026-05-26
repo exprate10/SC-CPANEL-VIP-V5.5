@@ -620,6 +620,165 @@ ${E.money} Revenue: Rp ${stats.revenue.toLocaleString('id-ID')}</blockquote>`, {
 
 
 
+const { addRole, removeRole, getUserRoles, getHighestRole, canUseCommands, canCreatePanel, canCreateAdminPanel, canAccessKeys, shouldAutoPromote, isLimitedRole, isNoCommandRole, getRolesByType, getRoleStats, ROLE_LABELS, ROLE_HIERARCHY } = require('./src/lib/roles');
+
+const ROLE_COMMANDS = {
+    addaddress: 'address',
+    addadmin: 'admin',
+    addpt: 'pt',
+    addown: 'own',
+    addtk: 'tk',
+    addceo: 'ceo',
+    adddev: 'dev',
+    addvmanager: 'vmanager',
+    addpemilik: 'pemilik',
+};
+
+for (const [cmd, role] of Object.entries(ROLE_COMMANDS)) {
+    bot.command(cmd, async (ctx) => {
+        if (!checkIsOwner(ctx.from.id) && !canUseCommands(ctx.from.id)) {
+            return ctx.reply(`<blockquote>${E.cross} Lo nggak punya akses buat command ini.</blockquote>`, { parse_mode: 'HTML' });
+        }
+
+        const args = (ctx.message.text || '').split(' ').slice(1);
+        let targetId = args[0];
+
+        if (ctx.message.reply_to_message) {
+            targetId = String(ctx.message.reply_to_message.from.id);
+        }
+
+        if (!targetId) {
+            return ctx.reply(`<blockquote>${E.cross} Format: /${cmd} [ID] atau reply pesan user.</blockquote>`, { parse_mode: 'HTML' });
+        }
+
+        targetId = String(targetId).trim();
+        const result = addRole(targetId, role, ctx.from.id);
+
+        if (!result.success) {
+            return ctx.reply(`<blockquote>${E.cross} Gagal: ${result.error}</blockquote>`, { parse_mode: 'HTML' });
+        }
+
+        let response = `<blockquote>${E.check} <b>Role Ditambahkan!</b>
+━━━━━━━━━━━━━━━━━━━━
+${E.pin} <b>User:</b> <code>${targetId}</code>
+${E.crown} <b>Role:</b> ${result.label}
+${E.target} <b>Oleh:</b> <code>${ctx.from.id}</code>`;
+
+        if (shouldAutoPromote(targetId)) {
+            response += `\n${E.check} <b>Auto-promote:</b> Aktif di grup`;
+            if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
+                try {
+                    await ctx.api.promoteChatMember(ctx.chat.id, Number(targetId), {
+                        can_manage_chat: true,
+                        can_delete_messages: true,
+                        can_restrict_members: true,
+                        can_promote_members: false,
+                        can_change_info: true,
+                        can_invite_users: true,
+                        can_pin_messages: true,
+                        can_manage_video_chats: true,
+                    });
+                    response += `\n${E.rocket} <b>Promoted</b> di grup ini!`;
+                } catch (err) {
+                    response += `\n${E.cross} Gagal promote: ${err.message}`;
+                }
+            }
+        } else {
+            response += `\n${E.cross} <b>Auto-promote:</b> Tidak`;
+        }
+
+        response += `</blockquote>`;
+        await ctx.reply(response, { parse_mode: 'HTML' });
+    });
+}
+
+const DEL_ROLE_COMMANDS = {
+    deladdress: 'address',
+    deladmin_role: 'admin',
+    delpt_role: 'pt',
+    delown: 'own',
+    deltk: 'tk',
+    delceo: 'ceo',
+    deldev: 'dev',
+    delvmanager: 'vmanager',
+    delpemilik: 'pemilik',
+};
+
+for (const [cmd, role] of Object.entries(DEL_ROLE_COMMANDS)) {
+    bot.command(cmd, async (ctx) => {
+        if (!checkIsOwner(ctx.from.id) && !canUseCommands(ctx.from.id)) {
+            return ctx.reply(`<blockquote>${E.cross} Akses ditolak.</blockquote>`, { parse_mode: 'HTML' });
+        }
+
+        const args = (ctx.message.text || '').split(' ').slice(1);
+        let targetId = args[0];
+        if (ctx.message.reply_to_message) targetId = String(ctx.message.reply_to_message.from.id);
+        if (!targetId) return ctx.reply(`<blockquote>${E.cross} Format: /${cmd} [ID] atau reply.</blockquote>`, { parse_mode: 'HTML' });
+
+        const result = removeRole(targetId.trim(), role);
+        if (!result.success) return ctx.reply(`<blockquote>${E.cross} ${result.error}</blockquote>`, { parse_mode: 'HTML' });
+
+        await ctx.reply(`<blockquote>${E.check} Role <b>${ROLE_LABELS[role]}</b> dihapus dari <code>${targetId}</code>.</blockquote>`, { parse_mode: 'HTML' });
+    });
+}
+
+bot.command('listroles', async (ctx) => {
+    if (!checkIsOwner(ctx.from.id) && !canUseCommands(ctx.from.id)) {
+        return ctx.reply(`<blockquote>${E.cross} Akses ditolak.</blockquote>`, { parse_mode: 'HTML' });
+    }
+
+    const stats = getRoleStats();
+    let text = `<blockquote>${E.crown} <b>ROLE STATISTICS</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+    for (const role of ROLE_HIERARCHY) {
+        text += `${E.dot} <b>${ROLE_LABELS[role]}:</b> ${stats[role]}\n`;
+    }
+    text += `━━━━━━━━━━━━━━━━━━━━\n${E.pin} <b>Total:</b> ${stats.total}</blockquote>`;
+    await ctx.reply(text, { parse_mode: 'HTML' });
+});
+
+bot.command('myrole', async (ctx) => {
+    const roles = getUserRoles(ctx.from.id);
+    if (roles.length === 0) {
+        return ctx.reply(`<blockquote>${E.cross} Lo belum punya role apapun.</blockquote>`, { parse_mode: 'HTML' });
+    }
+
+    const highest = getHighestRole(ctx.from.id);
+    let text = `<blockquote>${E.crown} <b>ROLE KAMU</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+    for (const r of roles) {
+        text += `${E.dot} ${ROLE_LABELS[r]}\n`;
+    }
+    text += `━━━━━━━━━━━━━━━━━━━━\n${E.target} <b>Tertinggi:</b> ${ROLE_LABELS[highest]}`;
+    text += `\n${E.check} <b>Commands:</b> ${canUseCommands(ctx.from.id) ? 'Aktif' : 'Terbatas'}`;
+    text += `\n${E.box} <b>Create Panel:</b> ${canCreatePanel(ctx.from.id) ? 'Ya' : 'Tidak'}`;
+    text += `\n${E.shield} <b>CADP:</b> ${canCreateAdminPanel(ctx.from.id) ? 'Ya' : 'Tidak'}`;
+    text += `\n${E.lock} <b>Keys Access:</b> ${canAccessKeys(ctx.from.id) ? 'Ya' : 'Tidak'}`;
+    text += `</blockquote>`;
+    await ctx.reply(text, { parse_mode: 'HTML' });
+});
+
+bot.command('cekrole', async (ctx) => {
+    if (!checkIsOwner(ctx.from.id) && !canUseCommands(ctx.from.id)) {
+        return ctx.reply(`<blockquote>${E.cross} Akses ditolak.</blockquote>`, { parse_mode: 'HTML' });
+    }
+
+    const args = (ctx.message.text || '').split(' ').slice(1);
+    let targetId = args[0];
+    if (ctx.message.reply_to_message) targetId = String(ctx.message.reply_to_message.from.id);
+    if (!targetId) return ctx.reply(`<blockquote>${E.cross} Format: /cekrole [ID] atau reply.</blockquote>`, { parse_mode: 'HTML' });
+
+    const roles = getUserRoles(targetId.trim());
+    if (roles.length === 0) return ctx.reply(`<blockquote>${E.cross} User <code>${targetId}</code> nggak punya role.</blockquote>`, { parse_mode: 'HTML' });
+
+    const highest = getHighestRole(targetId.trim());
+    let text = `<blockquote>${E.crown} <b>ROLE USER</b>\n${E.pin} ID: <code>${targetId}</code>\n━━━━━━━━━━━━━━━━━━━━\n`;
+    for (const r of roles) {
+        text += `${E.dot} ${ROLE_LABELS[r]}\n`;
+    }
+    text += `${E.target} Tertinggi: <b>${ROLE_LABELS[highest]}</b></blockquote>`;
+    await ctx.reply(text, { parse_mode: 'HTML' });
+});
+
+
 bot.on('callback_query:data', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const userId = ctx.from.id;
